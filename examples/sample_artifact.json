@@ -1,0 +1,10 @@
+{
+  "tool": "DD-Graph",
+  "run_id": "sample_run_0001",
+  "created_utc": "2026-01-30T04:22:26.922382",
+  "summary": "Exemple minimal d'artefact JSON \u00e0 vaultiser.",
+  "metrics": {
+    "nodes": 12,
+    "edges": 18
+  }
+}
