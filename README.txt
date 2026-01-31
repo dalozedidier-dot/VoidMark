@@ -13,13 +13,14 @@ Prérequis
 
 Usage
 1) Vaultiser un JSON
-   python dd_vault.py results/graph_report.json --vault_dir my_vault
+   python dd_vault.py results/graph_report.json --vault-dir my_vault
 
 Sorties
 - my_vault/vault_chain.json : chaîne de blocs
 - my_vault/block_<index>_artifact.json : copie de l'artefact original
 
 Notes
+- Option --vault-dir (canonique). Alias compat: --vault_dir.
 - Le champ data_summary est un résumé descriptif court.
 - La sécurité est celle d'un hash en chaîne (tamper-evident), pas un consensus distribué.
 

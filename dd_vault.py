@@ -14,7 +14,7 @@ from datetime import datetime
 class Vault:
     def __init__(self, vault_dir: Path):
         self.vault_dir = vault_dir
-        self.vault_dir.mkdir(exist_ok=True, parents=True)
+        self.vault_dir.mkdir(exist_ok=True)
         self.chain_file = vault_dir / "vault_chain.json"
         self.chain = self.load_chain()
 
@@ -54,7 +54,7 @@ class Vault:
 def main():
     parser = argparse.ArgumentParser(description="DD-Vault — Coffre-fort immuable")
     parser.add_argument("artifact", type=str, help="Fichier JSON à vaultiser")
-    parser.add_argument("--vault-dir", type=str, default="dd_vault", help="Dossier du vault")
+    parser.add_argument("--vault-dir", "--vault_dir", dest="vault_dir", type=str, default="dd_vault", help="Dossier du vault")
     args = parser.parse_args()
 
     vault = Vault(Path(args.vault_dir))
