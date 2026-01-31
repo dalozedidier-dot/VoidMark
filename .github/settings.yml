@@ -1,6 +1,6 @@
 repository:
   name: VoidMark
-  description: Chaîne de hachage append-only pour artefacts, vérification d'intégrité.
+  description: "Chaîne de hachage append-only pour artefacts, vérification d'intégrité."
   topics:
     - python
     - ci

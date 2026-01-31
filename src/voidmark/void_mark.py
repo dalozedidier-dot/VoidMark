@@ -34,7 +34,7 @@ class Vault:
             "timestamp": datetime.utcnow().isoformat(),
             "previous_hash": previous_block["hash"],
             "data_hash": self.compute_hash(data),
-            "data_summary": {k: str(v)[:100] for k, v in data.items()}  # descriptif court
+            "data_summary": {k: str(v)[:100] for k, v in data.items()},  # descriptif court
         }
         block["hash"] = self.compute_hash(block)
 
