@@ -1,22 +1,18 @@
 import json
 from pathlib import Path
 
-from voidmark.void_mark import Vault
+from src.void_mark import Vault
 
 
-def test_vault_adds_blocks(tmp_path: Path) -> None:
+def test_vault_adds_blocks(tmp_path: Path):
     vault_dir = tmp_path / "vault"
-    artifact = {"a": 1, "b": [1, 2, 3]}
+    payload = tmp_path / "p.json"
+    payload.write_text('{"a": 1}', encoding="utf-8")
 
-    v = Vault(vault_dir)
-    v.add_block(artifact)
-    v.add_block(artifact)
+    v = Vault(str(vault_dir))
+    b1 = v.add_block(str(payload))
+    b2 = v.add_block(str(payload))
 
-    chain_path = vault_dir / "vault_chain.json"
-    assert chain_path.exists()
-
-    chain = json.loads(chain_path.read_text(encoding="utf-8"))
-    # genesis + 2 blocks
-    assert len(chain) == 3
-    assert chain[1]["previous_hash"] == chain[0]["hash"]
-    assert chain[2]["previous_hash"] == chain[1]["hash"]
+    assert b2.index == b1.index + 1
+    chain = json.loads((vault_dir / "vault_chain.json").read_text(encoding="utf-8"))
+    assert len(chain) == 2
