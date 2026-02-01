@@ -38,13 +38,21 @@ jobs:
           python-version: "3.11"
           cache: "pip"
 
-      - name: Ensure .github/constraints.txt exists (generated if missing)
+      - name: Ensure constraints file exists (generated if missing)
         run: |
           set -euo pipefail
+
+          # Support legacy name if present
+          if [ -f .github_constraints.txt ] && [ ! -f .github/constraints.txt ]; then
+            mkdir -p .github
+            cp .github_constraints.txt .github/constraints.txt
+          fi
+
           if [ -f .github/constraints.txt ]; then
             echo ".github/constraints.txt present"
             exit 0
           fi
+
           mkdir -p .github
           cat > .github/constraints.txt << 'EOF'
           # Pins optionnels pour pip (ne s'installent pas "tout seuls")
@@ -53,17 +61,20 @@ jobs:
           packaging==24.1
           typing-extensions==4.12.2
           EOF
+
           sed -n '1,200p' .github/constraints.txt
 
       - name: Install deps (pinned via .github/constraints.txt)
         run: |
           set -euo pipefail
           python -m pip install -U pip
+
           if [ -f requirements.txt ] && [ -s requirements.txt ]; then
             pip install -r requirements.txt -c .github/constraints.txt
           else
             echo "requirements.txt absent ou vide, skip"
           fi
+
           if [ -f requirements-dev.txt ] && [ -s requirements-dev.txt ]; then
             pip install -r requirements-dev.txt -c .github/constraints.txt
           else
@@ -84,6 +95,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p _ci_out/mass
+
           python - << 'PY'
           import os, json, subprocess, hashlib, shutil, csv, random
           from pathlib import Path
@@ -99,12 +111,15 @@ jobs:
           def run_cmd(cmd):
             p = subprocess.run(cmd, capture_output=True, text=True)
             if p.returncode != 0:
-              raise RuntimeError("cmd_failed\ncmd=%s\nstdout=\n%s\nstderr=\n%s" % (" ".join(cmd), p.stdout, p.stderr))
+              raise RuntimeError(
+                "cmd_failed\ncmd=%s\nstdout=\n%s\nstderr=\n%s"
+                % (" ".join(cmd), p.stdout, p.stderr)
+              )
 
           def sha256_file(p: Path) -> str:
             h = hashlib.sha256()
             with p.open("rb") as f:
-              for chunk in iter(lambda: f.read(1024*1024), b""):
+              for chunk in iter(lambda: f.read(1024 * 1024), b""):
                 h.update(chunk)
             return h.hexdigest()
 
@@ -128,6 +143,7 @@ jobs:
             vault = run_dir / "vault"
             vault.mkdir(parents=True, exist_ok=True)
 
+            # Entry point VoidMark
             run_cmd(["python", "-m", "voidmark", str(artifact), "--vault-dir", str(vault)])
 
             chain = vault / "vault_chain.json"
