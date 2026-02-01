@@ -47,14 +47,9 @@ jobs:
           fi
           mkdir -p .github
           cat > .github/constraints.txt << 'EOF'
-          numpy==1.26.4
-          pandas==2.2.2
+          # Pins optionnels pour pip (ne s'installent pas "tout seuls")
           jsonschema==4.23.0
           pytest==8.3.3
-          python-dateutil==2.9.0.post0
-          pytz==2024.1
-          tzdata==2024.1
-          six==1.17.0
           packaging==24.1
           typing-extensions==4.12.2
           EOF
@@ -64,24 +59,23 @@ jobs:
         run: |
           set -euo pipefail
           python -m pip install -U pip
-
-          C="-c .github/constraints.txt"
           if [ -f requirements.txt ] && [ -s requirements.txt ]; then
-            python -m pip install -r requirements.txt $C
+            pip install -r requirements.txt -c .github/constraints.txt
+          else
+            echo "requirements.txt absent ou vide, skip"
           fi
           if [ -f requirements-dev.txt ] && [ -s requirements-dev.txt ]; then
-            python -m pip install -r requirements-dev.txt $C
-          fi
-
-          # Ces repos peuvent être des modules 'loose' (pas de pyproject/setup).
-          # Si packaging présent, on installe en editable; sinon on passera par PYTHONPATH.
-          if [ -f pyproject.toml ] || [ -f setup.py ]; then
-            python -m pip install -e . --no-deps
+            pip install -r requirements-dev.txt -c .github/constraints.txt
           else
-            echo "No pyproject.toml/setup.py -> skip editable install (using PYTHONPATH)"
+            echo "requirements-dev.txt absent ou vide, skip"
           fi
 
-      - name: Mass marks
+      - name: Set PYTHONPATH (root + src if present)
+        run: |
+          set -euo pipefail
+          echo "PYTHONPATH=${GITHUB_WORKSPACE}:${GITHUB_WORKSPACE}/src" >> "$GITHUB_ENV"
+
+      - name: Mass marks (no numpy/pandas)
         env:
           RUNS: ${{ github.event.inputs.runs }}
           N: ${{ github.event.inputs.n }}
@@ -89,12 +83,10 @@ jobs:
           KEEP: ${{ github.event.inputs.keep_outputs }}
         run: |
           set -euo pipefail
-          export PYTHONPATH="$PWD:$PWD/src:${PYTHONPATH:-}"
           mkdir -p _ci_out/mass
           python - << 'PY'
-          import os, json, subprocess, hashlib, shutil
+          import os, json, subprocess, hashlib, shutil, csv, random
           from pathlib import Path
-          import numpy as np
 
           runs = int(os.environ["RUNS"])
           n = int(os.environ["N"])
@@ -119,7 +111,7 @@ jobs:
           rows = []
           for i in range(1, runs + 1):
             seed = seed_base + i
-            rng = np.random.default_rng(seed)
+            rng = random.Random(seed)
 
             run_dir = out_root / f"run_{i:04d}"
             run_dir.mkdir(parents=True, exist_ok=True)
@@ -128,7 +120,7 @@ jobs:
               "tool": "voidmark.mass",
               "run": i,
               "seed": seed,
-              "values": [float(x) for x in rng.normal(0.0, 1.0, size=n)],
+              "values": [rng.gauss(0.0, 1.0) for _ in range(n)],
             }
             artifact = run_dir / "artifact.json"
             artifact.write_text(json.dumps(payload, indent=2), encoding="utf-8")
@@ -140,6 +132,7 @@ jobs:
 
             chain = vault / "vault_chain.json"
             block1 = vault / "block_1_artifact.json"
+
             rows.append({
               "run": i,
               "seed": seed,
@@ -151,7 +144,6 @@ jobs:
             })
 
             if not keep:
-              # réduire taille: garder uniquement chain + block_1 si présents
               keep_dir = run_dir / "vault_keep"
               keep_dir.mkdir(parents=True, exist_ok=True)
               if chain.exists():
@@ -160,11 +152,15 @@ jobs:
                 (keep_dir / "block_1_artifact.json").write_text(block1.read_text(encoding="utf-8"), encoding="utf-8")
               shutil.rmtree(vault, ignore_errors=True)
 
-          import pandas as pd
-          df = pd.DataFrame(rows)
-          df.to_csv(out_root / "summary.csv", index=False)
-          (out_root / "summary.json").write_text(df.to_json(orient="records", indent=2), encoding="utf-8")
-          print("wrote", (out_root / "summary.csv").resolve())
+          summary_csv = out_root / "summary.csv"
+          with summary_csv.open("w", newline="", encoding="utf-8") as f:
+            w = csv.DictWriter(f, fieldnames=list(rows[0].keys()) if rows else ["run"])
+            w.writeheader()
+            for r in rows:
+              w.writerow(r)
+
+          (out_root / "summary.json").write_text(json.dumps(rows, indent=2), encoding="utf-8")
+          print("wrote", summary_csv.resolve())
           PY
 
       - name: Upload artifacts
